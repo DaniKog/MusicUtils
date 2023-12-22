@@ -1,17 +1,16 @@
 #bpm finder based on the work of David
 #https://github.com/scaperot/the-BPM-detector-python
 
-# coding: utf-8
+# coding: utf-8-sig
+global_encoding = 'utf-8-sig'
 import argparse
 import math
 import taglib
-import matplotlib.pyplot as plt
 import numpy
 import pywt
 import csv
 from scipy import signal
 from scipy.io import wavfile
-from datetime import date
 from os import walk
 from os import path
 
@@ -157,7 +156,7 @@ def process_file(filepath, filename):
 def read_existiing_csv(csv_path):
     exiting_files = {}
     if path.isfile(csv_path):
-        with open(csv_path, encoding='utf-8-sig') as csvfile:
+        with open(csv_path, encoding = global_encoding) as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 exiting_files[row['FileName']] = { 'Title': row['Title'], 'BPM': row['BPM'], 'Key': row['Key'], 'Path': row['Path']}
@@ -169,6 +168,7 @@ def record_file_info(filename, filepath, exiting_files):
     key = ''
     title, _ = path.splitext(filename)
     # if file already processed
+
     if filename in exiting_files:
         bpm = exiting_files[filename]["BPM"]
         key = exiting_files[filename]["Key"]
@@ -177,13 +177,13 @@ def record_file_info(filename, filepath, exiting_files):
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
                 if key != track.tags['COMMENT'][0]:
-                    if key != '':
+                    if key == '':
                         file_key = track.tags['COMMENT'][0]
                         print(f'Key was incorrect in csv {key} updated to {file_key} from file {filename}')
                         key = file_key # the correct key is from the file
                     else:
                         track.tags['COMMENT'][0] = key
-                    print(f'Key was incorrect in file {filename} updated to {key}')
+                        print(f'Key was incorrect in file {filename} updated to {key} from csv')
                 if bpm != track.tags["BPM"][0]:
                     track.tags["BPM"] = bpm
                     print(f'BPM was incorrect in file {filename} updated to {bpm}')
@@ -247,7 +247,7 @@ if __name__ == "__main__":
                     csv_export.append(record_file_info(filename, filepath, exiting_files))
 
 
-    with open(csv_path, 'w', encoding="utf-8", newline='') as file: #ensure track is always on top
+    with open(csv_path, 'w', encoding = global_encoding, newline='') as file: #ensure track is always on top
         writer = csv.DictWriter(file, fieldnames = csv_export[0].keys())
         writer.writeheader() 
         writer.writerows(csv_export)
