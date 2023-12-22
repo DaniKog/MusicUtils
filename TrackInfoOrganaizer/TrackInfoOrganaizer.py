@@ -154,6 +154,59 @@ def process_file(filepath, filename):
 
     return bpm
 
+def read_existiing_csv(csv_path):
+    exiting_files = {}
+
+    with open(csv_path, encoding='utf-8-sig') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            exiting_files[row['FileName']] = { 'BPM': row['BPM'], 'Key': row['Key'], 'Path': row['Path']}
+    return exiting_files
+
+def record_file_info(filename, filepath, exiting_files):
+    csv_entry = {}
+    bpm = None
+    key = ''
+    # if file already processed
+    if filename in exiting_files:
+        bpm = exiting_files[filename]["BPM"]
+        key = exiting_files[filename]["Key"]
+        #ensure file holds right info
+        try:
+            with taglib.File(filepath, save_on_exit=True) as track:
+                if key != track.tags['COMMENT'][0]:
+                    if key != '':
+                        file_key = track.tags['COMMENT'][0]
+                        print(f'Key was incorrect in csv {key} updated to {file_key} from file {filename}')
+                        key = file_key # the correct key is from the file
+                    else:
+                        track.tags['COMMENT'][0] = key
+                    print(f'Key was incorrect in file {filename} updated to {key}')
+                if bpm != track.tags["BPM"][0]:
+                    track.tags["BPM"] = bpm
+                    print(f'BPM was incorrect in file {filename} updated to {bpm}')
+        except:
+            print("Something went wrong trying to read the tags")
+        del exiting_files[filename]
+    else:
+        # if not processed it 
+        bpm = process_file(filepath, filename)
+        try:
+            with taglib.File(filepath, save_on_exit=True) as track:
+                if 'COMMENT' in track.tags:
+                    key = track.tags['COMMENT'][0] # I added all keys in the comments
+                track.tags["BPM"] = f'{bpm}'
+        except:
+            print("Something went wrong trying to read the tags")
+        print(f'Processed new file f{filename} : f{bpm} : f{key}')
+            
+    csv_entry["FileName"] = filename
+    csv_entry["BPM"] = bpm
+    csv_entry["Key"] = key
+    csv_entry["Path"] = filepath
+    
+    return csv_entry
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process .wav file to determine the Beats Per Minute.")
     parser.add_argument("--Foldername", required=True, help=".folder for processing")
@@ -165,33 +218,21 @@ if __name__ == "__main__":
     )
     csv_export = []
     args = parser.parse_args()
-    folderPath = args.Foldername
-
+    
+    folder_path = args.Foldername
+    csv_path = f'{folder_path}\\_{path.basename(folder_path)}_TracksInfo.csv'
+    exiting_files = read_existiing_csv(csv_path)
 
     for (dirpath, dirnames, filenames) in walk(args.Foldername):
-        if dirpath == folderPath:
+        if dirpath == folder_path:
             for filename in filenames:
-                print(f'--------------------------------------------------------')
-                print(f'Processing... {filename}')
                 _, file_extension = path.splitext(filename)
                 if file_extension == '.wav':
                     filepath = path.join(dirpath,filename)
-                    bpm = process_file(filepath, filename)
-                    key = ''
-                    with taglib.File(filepath, save_on_exit=True) as track:
-                        if 'COMMENT' in track.tags:
-                            key = track.tags['COMMENT'][0] # I added all keys in the comments
-                        track.tags["BPM"] = f'{bpm}'
-                    csv_entry = {}
-                    csv_entry["FileName"] = filename
-                    csv_entry["BPM"] = bpm
-                    csv_entry["Key"] = key
-                    csv_entry["Path"] = filepath
-                    print(filename," : ", bpm, " : ", key)
-                    csv_export.append(csv_entry)
+                    csv_export.append(record_file_info(filename, filepath, exiting_files))
 
 
-    with open(f'_{path.basename(folderPath)}_TracksInfo.csv', 'w', encoding="utf-8", newline='') as file: #ensure track is always on top
+    with open(csv_path, 'w', encoding="utf-8", newline='') as file: #ensure track is always on top
         writer = csv.DictWriter(file, fieldnames = csv_export[0].keys())
         writer.writeheader() 
         writer.writerows(csv_export)
