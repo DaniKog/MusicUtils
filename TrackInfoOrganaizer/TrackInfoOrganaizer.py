@@ -156,21 +156,23 @@ def process_file(filepath, filename):
 
 def read_existiing_csv(csv_path):
     exiting_files = {}
-
-    with open(csv_path, encoding='utf-8-sig') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            exiting_files[row['FileName']] = { 'BPM': row['BPM'], 'Key': row['Key'], 'Path': row['Path']}
+    if path.isfile(csv_path):
+        with open(csv_path, encoding='utf-8-sig') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                exiting_files[row['FileName']] = { 'Title': row['Title'], 'BPM': row['BPM'], 'Key': row['Key'], 'Path': row['Path']}
     return exiting_files
 
 def record_file_info(filename, filepath, exiting_files):
     csv_entry = {}
     bpm = None
     key = ''
+    title, _ = path.splitext(filename)
     # if file already processed
     if filename in exiting_files:
         bpm = exiting_files[filename]["BPM"]
         key = exiting_files[filename]["Key"]
+        title = exiting_files[filename]["Title"]
         #ensure file holds right info
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
@@ -185,22 +187,35 @@ def record_file_info(filename, filepath, exiting_files):
                 if bpm != track.tags["BPM"][0]:
                     track.tags["BPM"] = bpm
                     print(f'BPM was incorrect in file {filename} updated to {bpm}')
+
+                if track.tags.get("TITLE") is None or title != track.tags["TITLE"][0]:
+                    track.tags["TITLE"] = title
+                    print(f'title was incorrect in file {filename} updated to {title}')
         except:
             print("Something went wrong trying to read the tags")
         del exiting_files[filename]
     else:
+        print(f"{filename} : Processing new file")
         # if not processed it 
-        bpm = process_file(filepath, filename)
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
                 if 'COMMENT' in track.tags:
                     key = track.tags['COMMENT'][0] # I added all keys in the comments
-                track.tags["BPM"] = f'{bpm}'
+                if 'BPM' in track.tags:
+                    file_bpm = track.tags["BPM"][0]
+                    bpm = file_bpm
+                    print(f"{filename} : Already had BPM ({file_bpm}) in meta data")
+                else:
+                    print(f"Detecting BPM on file : {filename}")
+                    bpm = process_file(filepath, filename)
+                    track.tags["BPM"] = f'{bpm}'
         except:
             print("Something went wrong trying to read the tags")
-        print(f'Processed new file f{filename} : f{bpm} : f{key}')
+        print(f'{filename} : File Procesed : {bpm} : {key}')
+        print(f'-------------')
             
     csv_entry["FileName"] = filename
+    csv_entry["Title"] = title
     csv_entry["BPM"] = bpm
     csv_entry["Key"] = key
     csv_entry["Path"] = filepath
