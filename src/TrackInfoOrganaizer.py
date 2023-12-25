@@ -176,21 +176,30 @@ def record_file_info(filename, filepath, exiting_files):
         #ensure file holds right info
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
-                if key != track.tags['COMMENT'][0]:
-                    if key == '':
-                        file_key = track.tags['COMMENT'][0]
-                        print(f'Key was incorrect in csv {key} updated to {file_key} from file {filename}')
-                        key = file_key # the correct key is from the file
-                    else:
-                        track.tags['COMMENT'][0] = key
-                        print(f'Key was incorrect in file {filename} updated to {key} from csv')
-                if bpm != track.tags["BPM"][0]:
+                ## Update Key
+                if 'COMMENT' in track.tags:
+                    file_key = track.tags['COMMENT'][0]
+                    if key != file_key:
+                        if key == '':
+                            file_key = track.tags['COMMENT'][0]
+                            print(f'Key was incorrect in csv {key} updated to {file_key} from file {filename}')
+                            key = file_key # the correct key is from the file
+                        else:
+                            track.tags['COMMENT'][0] = key
+                            print(f'Key was incorrect in file {filename} updated to {key} from csv')
+
+                elif key == '':
+                    track.tags['COMMENT'] = [key]
+                    print(f'Key was missing in file {filename} updated to {key} from csv')
+                ## update BPM
+                if track.tags.get("BPM") is None or bpm != track.tags["BPM"][0]:
                     track.tags["BPM"] = bpm
                     print(f'BPM was incorrect in file {filename} updated to {bpm}')
-
+                ## update TITLE  
                 if track.tags.get("TITLE") is None or title != track.tags["TITLE"][0]:
+                    title_from_file = track.tags["TITLE"]
                     track.tags["TITLE"] = title
-                    print(f'title was incorrect in file {filename} updated to {title}')
+                    print(f'{filename} title was {title_from_file} updated to {title}')
         except:
             print("Something went wrong trying to read the tags")
         del exiting_files[filename]
@@ -199,8 +208,10 @@ def record_file_info(filename, filepath, exiting_files):
         # if not processed it 
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
+                ##Key
                 if 'COMMENT' in track.tags:
                     key = track.tags['COMMENT'][0] # I added all keys in the comments
+                ##BPM
                 if 'BPM' in track.tags:
                     file_bpm = track.tags["BPM"][0]
                     bpm = file_bpm
@@ -209,6 +220,14 @@ def record_file_info(filename, filepath, exiting_files):
                     print(f"Detecting BPM on file : {filename}")
                     bpm = process_file(filepath, filename)
                     track.tags["BPM"] = f'{bpm}'
+                ##Title
+                if track.tags.get("TITLE") is None:
+                    track.tags["TITLE"] = title
+                elif title != track.tags["TITLE"][0]:
+                    title_from_file = track.tags["TITLE"][0]
+                    print(f"File already has Title {title_from_file} set it but it is not matching! the file name {title}!. Please Check")
+                    title = title_from_file
+
         except:
             print("Something went wrong trying to read the tags")
         print(f'{filename} : File Procesed : {bpm} : {key}')
@@ -251,4 +270,4 @@ if __name__ == "__main__":
         writer = csv.DictWriter(file, fieldnames = csv_export[0].keys())
         writer.writeheader() 
         writer.writerows(csv_export)
-        print('Done')
+        print('Update Done')
