@@ -134,7 +134,7 @@ def process_file(filepath, filename):
             raise AssertionError(str(len(data)))
 
         max_val = abs(max(data, key=abs))
-        if max_val > 20000: #ignore quite parts
+        if max_val > 15000: #ignore quite parts
             bpm, correl_temp = bpm_detector(data, fs)
             if bpm is None:
                 continue
@@ -188,7 +188,7 @@ def record_file_info(filename, filepath, exiting_files):
                             track.tags['COMMENT'][0] = key
                             print(f'Key was incorrect in file {filename} updated to {key} from csv')
 
-                elif key == '':
+                elif key != '':
                     track.tags['COMMENT'] = [key]
                     print(f'Key was missing in file {filename} updated to {key} from csv')
                 ## update BPM
@@ -201,7 +201,7 @@ def record_file_info(filename, filepath, exiting_files):
                     track.tags["TITLE"] = title
                     print(f'{filename} title was {title_from_file} updated to {title}')
         except:
-            print("Something went wrong trying to read the tags")
+            print(f"{filename} : Something went wrong trying to read the tags")
         del exiting_files[filename]
     else:
         print(f"{filename} : Processing new file")
@@ -221,7 +221,7 @@ def record_file_info(filename, filepath, exiting_files):
                     bpm = process_file(filepath, filename)
                     track.tags["BPM"] = f'{bpm}'
                 ##Title
-                if track.tags.get("TITLE") is None:
+                if 'TITLE' not in track.tags:
                     track.tags["TITLE"] = title
                 elif title != track.tags["TITLE"][0]:
                     title_from_file = track.tags["TITLE"][0]
@@ -229,9 +229,8 @@ def record_file_info(filename, filepath, exiting_files):
                     title = title_from_file
 
         except:
-            print("Something went wrong trying to read the tags")
+            print("{filename} : Something went wrong trying to read the tags")
         print(f'{filename} : File Procesed : {bpm} : {key}')
-        print(f'-------------')
             
     csv_entry["FileName"] = filename
     csv_entry["Title"] = title
@@ -239,6 +238,7 @@ def record_file_info(filename, filepath, exiting_files):
     csv_entry["Key"] = key
     csv_entry["Path"] = filepath
     
+    print(f'-------------')
     return csv_entry
 
 if __name__ == "__main__":
@@ -247,12 +247,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--window",
         type=float,
-        default=1.5,
+        default=2,
         help="Size of the the window (seconds) that will be scanned to determine the bpm. Typically less than 10 seconds. [3]",
     )
     csv_export = []
     args = parser.parse_args()
-    
     folder_path = args.Foldername
     csv_path = f'{folder_path}\\_{path.basename(folder_path)}_TracksInfo.csv'
     exiting_files = read_existiing_csv(csv_path)

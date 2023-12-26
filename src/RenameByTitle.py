@@ -21,6 +21,8 @@ if __name__ == "__main__":
     folder_path = args.Foldername
     csv_name = f'_{os.path.basename(folder_path)}_TracksInfo.csv'
     csv_path = f'{folder_path}\\{csv_name}'
+    if os.path.isfile(csv_path) == False:
+        print(f"csv {csv_path} does not exist")
 
     tempfile = NamedTemporaryFile(mode='w', delete=False, newline='', encoding = global_encoding)
     if os.path.isfile(csv_path):
