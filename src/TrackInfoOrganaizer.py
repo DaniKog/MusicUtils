@@ -2,7 +2,6 @@
 #https://github.com/scaperot/the-BPM-detector-python
 
 # coding: utf-8-sig
-global_encoding = 'utf-8-sig'
 import argparse
 import math
 import taglib
@@ -14,6 +13,8 @@ from scipy.io import wavfile
 from os import walk
 from os import path
 
+global_BPM_detection_threashold = 800
+global_encoding = 'utf-8-sig'
 def read_wav(filename):
     # open file, get metadata for audio
     fs = 0
@@ -134,7 +135,7 @@ def process_file(filepath, filename):
             raise AssertionError(str(len(data)))
 
         max_val = abs(max(data, key=abs))
-        if max_val > 15000: #ignore quite parts
+        if max_val > global_BPM_detection_threashold: #ignore quite parts
             bpm, correl_temp = bpm_detector(data, fs)
             if bpm is None:
                 continue
@@ -167,12 +168,15 @@ def record_file_info(filename, filepath, exiting_files):
     bpm = None
     key = ''
     title, _ = path.splitext(filename)
+    logs = []
+    hasChanges = False
     # if file already processed
 
     if filename in exiting_files:
         bpm = exiting_files[filename]["BPM"]
         key = exiting_files[filename]["Key"]
         title = exiting_files[filename]["Title"]
+        logs.append(f"File {filename} exits in csv")
         #ensure file holds right info
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
@@ -182,29 +186,49 @@ def record_file_info(filename, filepath, exiting_files):
                     if key != file_key:
                         if key == '':
                             file_key = track.tags['COMMENT'][0]
-                            print(f'Key was incorrect in csv {key} updated to {file_key} from file {filename}')
+                            logs.append(f'Key was incorrect in csv {key} updated to {file_key} from file {filename}')
                             key = file_key # the correct key is from the file
                         else:
                             track.tags['COMMENT'][0] = key
-                            print(f'Key was incorrect in file {filename} updated to {key} from csv')
+                            logs.append(f'Key was incorrect in file {filename} updated to {key} from csv')
+                        hasChanges = True
 
                 elif key != '':
                     track.tags['COMMENT'] = [key]
-                    print(f'Key was missing in file {filename} updated to {key} from csv')
-                ## update BPM
-                if track.tags.get("BPM") is None or bpm != track.tags["BPM"][0]:
+                    logs.append(f'Key was missing in file {filename} updated to {key} from csv')
+                    hasChanges = True
+                ## update BPM from csv
+                if bpm == '0':
+                    print(f"Detecting BPM on file : {filename}")
+                    bpm = process_file(filepath, filename)
+                    track.tags["BPM"] = f'{bpm}'
+                    logs.append(f'BPM was 0 in csv {filename} updated to {bpm}')
+                    hasChanges = True
+                elif 'BPM' not in track.tags or bpm != track.tags["BPM"][0]:
                     track.tags["BPM"] = bpm
-                    print(f'BPM was incorrect in file {filename} updated to {bpm}')
+                    logs.append(f'BPM was incorrect in file {filename} updated to {bpm}')
+                    hasChanges = True
                 ## update TITLE  
-                if track.tags.get("TITLE") is None or title != track.tags["TITLE"][0]:
-                    title_from_file = track.tags["TITLE"]
+                if 'TITLE' not in track.tags:
                     track.tags["TITLE"] = title
-                    print(f'{filename} title was {title_from_file} updated to {title}')
+                    logs.append(f'{filename} : Updated file title to {title}')
+                    hasChanges = True
+                elif title != track.tags["TITLE"][0]:
+                        title_from_file = track.tags["TITLE"]
+                        track.tags["TITLE"] = title
+                        logs.append(f'{filename} title was {title_from_file} updated to {title}')
+                        hasChanges = True
+        except Exception as e:
+            logs.append(f"ERROR: {filename} : {e}")
+            hasChanges = True
         except:
-            print(f"{filename} : Something went wrong trying to read the tags")
+            logs.append(f"{filename} : Something went wrong trying to read the tags")
+            hasChanges = True
+        logs.append(f'{filename} : File Procesed : {bpm} : {key}')
         del exiting_files[filename]
     else:
-        print(f"{filename} : Processing new file")
+        logs.append(f"{filename} : Processing new file")
+        hasChanges = True
         # if not processed it 
         try:
             with taglib.File(filepath, save_on_exit=True) as track:
@@ -215,7 +239,7 @@ def record_file_info(filename, filepath, exiting_files):
                 if 'BPM' in track.tags:
                     file_bpm = track.tags["BPM"][0]
                     bpm = file_bpm
-                    print(f"{filename} : Already had BPM ({file_bpm}) in meta data")
+                    logs.append(f"{filename} : Already had BPM ({file_bpm}) in meta data")
                 else:
                     print(f"Detecting BPM on file : {filename}")
                     bpm = process_file(filepath, filename)
@@ -225,25 +249,28 @@ def record_file_info(filename, filepath, exiting_files):
                     track.tags["TITLE"] = title
                 elif title != track.tags["TITLE"][0]:
                     title_from_file = track.tags["TITLE"][0]
-                    print(f"File already has Title {title_from_file} set it but it is not matching! the file name {title}!. Please Check")
+                    logs.append(f"File already has Title {title_from_file} set it but it is not matching! the file name {title}!. Please Check")
                     title = title_from_file
-
+        except Exception as e:
+            logs.append(f"ERROR: {filename} : {e}")
         except:
-            print("{filename} : Something went wrong trying to read the tags")
-        print(f'{filename} : File Procesed : {bpm} : {key}')
+           logs.append("{filename} : Something went wrong trying to read the tags")
+        logs.append(f'{filename} : File Procesed : {bpm} : {key}')
             
     csv_entry["FileName"] = filename
     csv_entry["Title"] = title
     csv_entry["BPM"] = bpm
     csv_entry["Key"] = key
     csv_entry["Path"] = filepath
-    
-    print(f'-------------')
+    if hasChanges == True:
+        for log in logs:
+            print(log)
+        print(f'-------------')
     return csv_entry
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process .wav file to determine the Beats Per Minute.")
-    parser.add_argument("--Foldername", required=True, help=".folder for processing")
+    parser.add_argument("--Folderpath", required=True, help=".folder for processing")
     parser.add_argument(
         "--window",
         type=float,
@@ -252,11 +279,11 @@ if __name__ == "__main__":
     )
     csv_export = []
     args = parser.parse_args()
-    folder_path = args.Foldername
+    folder_path = args.Folderpath
     csv_path = f'{folder_path}\\_{path.basename(folder_path)}_TracksInfo.csv'
     exiting_files = read_existiing_csv(csv_path)
 
-    for (dirpath, dirnames, filenames) in walk(args.Foldername):
+    for (dirpath, dirnames, filenames) in walk(folder_path):
         if dirpath == folder_path:
             for filename in filenames:
                 _, file_extension = path.splitext(filename)
