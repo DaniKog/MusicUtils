@@ -27,7 +27,9 @@ if __name__ == "__main__":
             for row in reader:
                 old_filename = row['FileName']
                 title = row['Title']
-                new_filename = f'{title}.wav'
+                key = row['Key']
+                BPM = row['BPM']
+                new_filename = f'{key}.{BPM}. {title}.wav'
                 if old_filename != new_filename:
                     oldpath = row['Path']
                     if os.path.isfile(oldpath):
