@@ -18,7 +18,7 @@ from os import path
 
 global_BPM_detection_threashold = 2000
 global_BPM_detection_windowsize = 3
-global_multithread_maxWorkers = 8
+global_BPM_detection_window_skip = 3
 global_encoding = 'utf-8-sig'
 
 def read_wav(filename):
@@ -126,8 +126,8 @@ def process_file(filepath, filename):
     window_samps = int(args.window * fs)
     samps_ndx = 0  # First sample in window_ndx
     max_window_ndx = math.floor(nsamps / window_samps)
-    bpms = numpy.zeros(max_window_ndx)
-
+    bpms = []
+    skipindex = 0
     # Iterate through all windows
     for window_ndx in range(0, max_window_ndx):
 
@@ -140,12 +140,15 @@ def process_file(filepath, filename):
 
         max_val = abs(max(data, key=abs))
         if max_val > global_BPM_detection_threashold: #ignore quite parts
-            bpm, correl_temp = bpm_detector(data, fs)
-            if bpm is None:
-                continue
-            bpms[n] = bpm
-            correl = correl_temp
-            n = n + 1
+            if skipindex == global_BPM_detection_window_skip:
+                bpm, correl_temp = bpm_detector(data, fs)
+                if bpm is None or bpm == 0:
+                    continue
+                bpms.append(bpm[0])
+                correl = correl_temp
+                n = n + 1
+                skipindex = 0
+            skipindex = skipindex + 1
 
         # Iterate at the end of the loop
         samps_ndx = samps_ndx + window_samps
@@ -237,7 +240,7 @@ def record_file_info(filename, filepath, exiting_files, csv_export):
                 if 'COMMENT' in track.tags:
                     key = track.tags['COMMENT'][0] # I added all keys in the comments
                 ##BPM
-                if 'BPM' in track.tags:
+                if 'BPM' in track.tags and track.tags["BPM"][0] != '0':
                     file_bpm = track.tags["BPM"][0]
                     bpm = file_bpm
                     logs.append(f"{filename} : Already had BPM ({file_bpm}) in meta data")
@@ -248,6 +251,7 @@ def record_file_info(filename, filepath, exiting_files, csv_export):
                 ##Title
                 if 'TITLE' not in track.tags:
                     track.tags["TITLE"] = title
+                    logs.append(f"File already did not had Title updated it to {title}!")
                 elif title != track.tags["TITLE"][0]:
                     title_from_file = track.tags["TITLE"][0]
                     logs.append(f"File already has Title {title_from_file} set it but it is not matching! the file name {title}!. Please Check")
@@ -317,4 +321,4 @@ if __name__ == "__main__":
         writer.writerows(csv_export)
         print('Update Done')
     finish = perf_counter()
-    print(f"It took {finish-start} second(s) to finish for {itemCount} files.")
+    print(f"It took {format(finish-start, '.2f')} second(s) to finish for {itemCount} files.")

@@ -11,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--Folderpath", required=True, help=".folder for processing")
     csv_export = []
     args = parser.parse_args()
-    
+
     folder_path = args.Folderpath
     csv_name = f'_{os.path.basename(folder_path)}_TracksInfo.csv'
     csv_path = f'{folder_path}\\{csv_name}'
@@ -19,6 +19,7 @@ if __name__ == "__main__":
         print(f"csv {csv_path} does not exist")
 
     tempfile = NamedTemporaryFile(mode='w', delete=False, newline='', encoding = global_encoding)
+    changes = False
     if os.path.isfile(csv_path):
         with open(csv_path, encoding = global_encoding) as csvfile, tempfile:
             reader = csv.DictReader(csvfile)
@@ -40,10 +41,15 @@ if __name__ == "__main__":
                         print(f'Renamed: {old_filename}')
                         print(f'To: {new_filename}')
                         print(f'--------------')
+                        changes = True
                     else:
                         print(f'ERROR: Path does not exist! {oldpath}')
                 writer.writerow(row)
     else:
         print(f'{csv_path} does not exist')
-    shutil.move(tempfile.name, csv_path)
-    print("Done")
+    if changes == True:
+        shutil.move(tempfile.name, csv_path)
+        print("Done")
+    else:
+        print("No Changes needed to be made")
+    
