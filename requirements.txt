@@ -1,0 +1,4 @@
+pytaglib
+numpy
+PyWavelets
+scipy
