@@ -17,6 +17,7 @@ if __name__ == "__main__":
     csv_path = f'{folder_path}\\{csv_name}'
     if os.path.isfile(csv_path) == False:
         print(f"csv {csv_path} does not exist")
+        exit(0)
 
     tempfile = NamedTemporaryFile(mode='w', delete=False, newline='', encoding = global_encoding)
     if os.path.isfile(csv_path):
