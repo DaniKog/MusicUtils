@@ -30,7 +30,7 @@ if __name__ == "__main__":
                 title = row['Title']
                 key = row['Key']
                 BPM = row['BPM']
-                new_filename = f'{key}.{BPM}. {title}.wav'
+                new_filename = f'{BPM}.{key}. {title}.wav'
                 if old_filename != new_filename:
                     oldpath = row['Path']
                     if os.path.isfile(oldpath):
