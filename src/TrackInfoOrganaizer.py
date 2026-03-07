@@ -310,7 +310,7 @@ if __name__ == "__main__":
         if dirpath == folder_path:
             for filename in filenames:
                 _, file_extension = path.splitext(filename)
-                if file_extension == '.wav':
+                if file_extension == '.wav' || file_extension == '.aiff'|| file_extension == '.flac':
                     filepath = path.join(dirpath,filename)
                     record_file_info(filename, filepath, exiting_files, csv_export)
                     itemCount = itemCount + 1
